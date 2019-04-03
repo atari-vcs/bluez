@@ -1,3 +1,9 @@
+bluez (5.50-1co1) apertis; urgency=medium
+
+  * set car class of device 
+
+ -- Frédéric Dalleau <frederic.dalleau@collabora.com>  Wed, 03 Apr 2019 07:21:26 +0000
+
 bluez (5.50-1) unstable; urgency=medium
 
   * Update to 5.50.

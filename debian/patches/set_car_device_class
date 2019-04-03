@@ -1,0 +1,24 @@
+From: Apertis <apertis.org>
+Date: Mon, 14 Apr 2014 06:03:58 +0800
+Subject: Set car device class
+
+Apertis is designed to run on cars, not general-purpose computers.
+
+(The original author and date of this change have been lost.)
+---
+ src/main.conf | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/main.conf b/src/main.conf
+index 372fd8c..808dbd5 100644
+--- a/src/main.conf
++++ b/src/main.conf
+@@ -6,7 +6,7 @@
+ 
+ # Default device class. Only the major and minor device class bits are
+ # considered. Defaults to '0x000000'.
+-#Class = 0x000100
++Class = 0x200420
+ 
+ # How long to stay in discoverable mode before going back to non-discoverable
+ # The value is in seconds. Default is 180, i.e. 3 minutes.
