@@ -5,7 +5,7 @@
 
 include <tunables/global>
 
-/usr/lib{,32,64}/bluetooth/bluetoothd flags=(attach_disconnected) {
+/usr/lib/bluetooth/bluetoothd flags=(attach_disconnected) {
 	include <abstractions/base>
 	include <abstractions/dbus-session>
 
