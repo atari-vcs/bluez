@@ -1,61 +1,102 @@
-#include <tunables/global>
+#  AppArmor profile for the Bluetooth Daemon
+# ---------------------------------------------
+# Author: Nibaldo Gonzalez <nibgonz@gmail.com>
+# Last change: March 07, 2019
 
-/usr/lib/bluetooth/bluetoothd {
-  #include <abstractions/chaiwala-base>
-  #include <abstractions/dbus-strict>
+include <tunables/global>
 
-  dbus send
-       bus=system
-       path=/org/freedesktop/DBus
-       interface=org.freedesktop.DBus
-       member={RequestName,ReleaseName}
-       peer=(name=org.freedesktop.DBus),
-  dbus bind bus=system name=org.bluez,
-  dbus (send, receive) bus=system peer=(label=unconfined),
-  dbus (send, receive) bus=system peer=(label=/usr/bin/beckfoot),
-  dbus (send, receive) bus=system peer=(label=/usr/bin/corbridge),
-  dbus (send, receive) bus=system peer=(label=/usr/sbin/ofonod),
-  dbus (send, receive) bus=system peer=(label=/usr/sbin/connmand),
-  dbus (send, receive) bus=system peer=(label=/usr/bin/pulseaudio),
-  dbus (send, receive) bus=system peer=(label=/usr/Applications/org.apertis.Mildenhall.Settings/bin/mildenhall-settings),
+/usr/lib{,32,64}/bluetooth/bluetoothd flags=(attach_disconnected) {
+	include <abstractions/base>
+	include <abstractions/dbus-session>
 
-  capability ipc_lock,
-  capability net_admin,
-  capability net_bind_service,
-  capability net_raw,
-  # Needed for PAN tethering
-  capability sys_module,
+	network bluetooth,
+	network netlink raw,
 
-  network inet dgram,
-  network inet stream,
-  network inet6 dgram,
-  network inet6 stream,
+	capability net_admin,
+	capability net_bind_service,
 
-  network bluetooth raw,
-  network bluetooth seqpacket,
-  network bluetooth stream,
+	/usr/lib{,32,64}/bluetooth/bluetoothd ixmr,
+	/var/lib{,32,64}/bluetooth/** rwk,
+	/usr/lib{,32,64}/{,@{multiarch}/}bluetooth/{,**} r,
+	/usr/lib{,32,64}/{,@{multiarch}/}bluetooth/plugins/sixaxis.so m,
+	/etc/bluetooth/** r,
+	/etc/udev/udev.conf r,
 
-  /usr/lib/bluetooth/bluetoothd mr,
+	/dev/rfkill rw,
+	/dev/uinput rw,
 
-  /dev/rfkill rw,
-  /dev/uinput rw,
+	/sys/devices/{,**} r,
+	/run/udev/{,**} r,
+	/run/systemd/notify w,
+	/run/dbus/system_bus_socket rw,
 
-  /sys/devices/virtual/dmi/id/chassis_type r,
-  /sys/devices/**/bluetooth/hci[0-9]*/rfkill[0-9]*/power/control rw,
-  /sys/devices/**/bluetooth/** r,
-  /run/sdp w,
+	/run/systemd/journal/{socket,dev-log} rw,
+	/dev/log rw,
 
-  # systemd notification
-  /run/systemd/notify w,
+	dbus (bind)
+		bus=system
+		name=org.bluez,
 
-  /etc/bluetooth/audio.conf r,
-  /etc/bluetooth/input.conf r,
-  /etc/bluetooth/main.conf r,
-  /etc/bluetooth/network.conf r,
-  /etc/bluetooth/serial.conf r,
-  /etc/bluetooth/rfcomm.conf r,
+	dbus (receive)
+		bus=system
+		path=/org/bluez{,/**},
+	dbus (send)
+		bus=system
+		interface=org.bluez.*,
 
-  /var/lib/bluetooth/ rw,
-  # The path holds the address for the local interface
-  /var/lib/bluetooth/[A-Z0-9:]*/{,**} rwk,
+	dbus (send)
+		bus=system
+		path=/org/bluez/hci[0-9]**
+		interface=org.freedesktop.DBus.Properties
+		member=PropertiesChanged
+		peer=(name=org.freedesktop.DBus),
+
+	dbus (send)
+		bus=system
+		path=/
+		interface=org.freedesktop.DBus.ObjectManager
+		member={InterfacesRemoved,InterfacesAdded},
+	dbus (receive)
+		bus=system
+		path=/
+		interface=org.freedesktop.DBus.ObjectManager
+		member={GetAll,GetManagedObjects},
+
+	dbus (receive)
+		bus=system
+		path=/
+		interface=org.freedesktop.DBus.Introspectable
+		member=Introspect,
+	dbus (send)
+		bus=system
+		path=/org/freedesktop/DBus
+		interface=org.freedesktop.DBus
+		member={Hello,RequestName,AddMatch,RemoveMatch,GetNameOwner}
+		peer=(name=org.freedesktop.DBus),
+
+	dbus (send)
+		bus=system
+		path=/org/freedesktop/hostname[0-9]*
+		interface=org.freedesktop.DBus.Properties
+		member=GetAll,
+
+	# Noisy
+	deny /{home,root,media,mnt,srv,net}/** rwkl,
+	audit deny /{home,root,media,mnt,srv,net,cdrom,run,tmp}/** mx,
+	audit deny /dev/{audio,video}* rwklmx,
+
+	audit deny /boot/** rwklmx,
+	audit deny /var/log/** rwklmx,
+	audit deny /etc/apparmor.d/** rwklmx,
+	audit deny /etc/apparmor/** rwklmx,
+	audit deny /var/lib/apparmor/** rwklmx,
+
+	audit deny /etc/init.d/** rwklmx,
+	audit deny /etc/cron.*/** rwklmx,
+	audit deny /etc/initramfs-tools/** rwklmx,
+	audit deny /etc/systemd/** rwklmx,
+	audit deny /etc/xdg/{autostart,systemd}/** rwklmx,
 }
+
+# kate: syntax AppArmor Security Profile; replace-tabs off; remove-trailing-spaces mod;
+# vim:  syntax=apparmor
