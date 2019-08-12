@@ -28,3 +28,4 @@ attrib/gatttool usr/bin
 lib/systemd/system/bluetooth.service
 etc/dbus-1/system.d/bluetooth.conf
 usr/share/dbus-1/system-services/org.bluez.service
+debian/apparmor.d/* /etc/apparmor.d/

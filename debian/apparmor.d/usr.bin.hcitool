@@ -1,0 +1,13 @@
+# Last Modified: Tue Feb 19 15:44:46 2013
+#include <tunables/global>
+
+/usr/bin/hcitool {
+  #include <abstractions/chaiwala-base>
+
+  capability net_raw,
+  network bluetooth raw,
+
+  /usr/bin/hcitool mr,
+
+  /var/lib/bluetooth/*/names rk,
+}

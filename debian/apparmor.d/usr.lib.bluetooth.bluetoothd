@@ -1,0 +1,61 @@
+#include <tunables/global>
+
+/usr/lib/bluetooth/bluetoothd {
+  #include <abstractions/chaiwala-base>
+  #include <abstractions/dbus-strict>
+
+  dbus send
+       bus=system
+       path=/org/freedesktop/DBus
+       interface=org.freedesktop.DBus
+       member={RequestName,ReleaseName}
+       peer=(name=org.freedesktop.DBus),
+  dbus bind bus=system name=org.bluez,
+  dbus (send, receive) bus=system peer=(label=unconfined),
+  dbus (send, receive) bus=system peer=(label=/usr/bin/beckfoot),
+  dbus (send, receive) bus=system peer=(label=/usr/bin/corbridge),
+  dbus (send, receive) bus=system peer=(label=/usr/sbin/ofonod),
+  dbus (send, receive) bus=system peer=(label=/usr/sbin/connmand),
+  dbus (send, receive) bus=system peer=(label=/usr/bin/pulseaudio),
+  dbus (send, receive) bus=system peer=(label=/usr/Applications/org.apertis.Mildenhall.Settings/bin/mildenhall-settings),
+
+  capability ipc_lock,
+  capability net_admin,
+  capability net_bind_service,
+  capability net_raw,
+  # Needed for PAN tethering
+  capability sys_module,
+
+  network inet dgram,
+  network inet stream,
+  network inet6 dgram,
+  network inet6 stream,
+
+  network bluetooth raw,
+  network bluetooth seqpacket,
+  network bluetooth stream,
+
+  /usr/lib/bluetooth/bluetoothd mr,
+
+  /dev/rfkill rw,
+  /dev/uinput rw,
+
+  /sys/devices/virtual/dmi/id/chassis_type r,
+  /sys/devices/**/bluetooth/hci[0-9]*/rfkill[0-9]*/power/control rw,
+  /sys/devices/**/bluetooth/** r,
+  /run/sdp w,
+
+  # systemd notification
+  /run/systemd/notify w,
+
+  /etc/bluetooth/audio.conf r,
+  /etc/bluetooth/input.conf r,
+  /etc/bluetooth/main.conf r,
+  /etc/bluetooth/network.conf r,
+  /etc/bluetooth/serial.conf r,
+  /etc/bluetooth/rfcomm.conf r,
+
+  /var/lib/bluetooth/ rw,
+  # The path holds the address for the local interface
+  /var/lib/bluetooth/[A-Z0-9:]*/{,**} rwk,
+}

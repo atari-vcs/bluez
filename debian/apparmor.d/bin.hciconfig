@@ -1,0 +1,12 @@
+#include <tunables/global>
+
+/bin/hciconfig {
+  #include <abstractions/chaiwala-base>
+
+  capability net_admin,
+  capability net_raw,
+
+  network bluetooth raw,
+
+  /bin/hciconfig mr,
+}
