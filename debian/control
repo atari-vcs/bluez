@@ -4,6 +4,7 @@ Uploaders: Nobuhiro Iwamatsu <iwamatsu@debian.org>
 Section: admin
 Priority: optional
 Build-Depends: debhelper (>= 10),
+               dh-apparmor,
                flex,
                bison,
                libdbus-glib-1-dev,

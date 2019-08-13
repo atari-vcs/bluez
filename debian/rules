@@ -39,6 +39,9 @@ override_dh_install:
 	rm -rf  debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/plugins/sixaxis.la
 
 	dh_install --list-missing
+	dh_apparmor -pbluez --profile-name=usr.lib.bluetooth.bluetoothd
+	dh_apparmor -pbluez --profile-name=bin.hciconfig
+	dh_apparmor -pbluez --profile-name=usr.bin.hcitool
 
 override_dh_auto_configure:
 	dh_auto_configure -- $(CONFIGURE_FLAGS)
