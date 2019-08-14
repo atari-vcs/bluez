@@ -1,3 +1,12 @@
+bluez (5.50-1co2) apertis; urgency=medium
+
+  * Add AppArmor profiles from Apertis 18.12
+  * Use updated AppArmor profile
+  * Fix the label in AppArmor profile
+  * Add dh-apparmor into build dependencies
+
+ -- Denis Pynkin <denis.pynkin@collabora.com>  Wed, 14 Aug 2019 10:31:33 +0000
+
 bluez (5.50-1co1) apertis; urgency=medium
 
   * set car class of device 
