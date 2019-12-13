@@ -1,3 +1,11 @@
+bluez (5.50-1co3) apertis; urgency=medium
+
+  * debian/bluez.tmpfile: Create /var/lib/bluetooth on boot as apparmor won't
+    allow bluetoothd to create it, which means all Bluetooth operations will
+    fail.
+
+ -- Sjoerd Simons <sjoerd.simons@collabora.co.uk>  Fri, 13 Dec 2019 10:45:15 +0100
+
 bluez (5.50-1co2) apertis; urgency=medium
 
   * Add AppArmor profiles from Apertis 18.12

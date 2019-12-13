@@ -1,0 +1,2 @@
+# Data directory for bluetoothd
+d /var/lib/bluetooth 0700 root root -
