@@ -1,3 +1,11 @@
+bluez (5.50-1co4) apertis; urgency=medium
+
+  * debian/apparmor.d/usr.lib.bluetooth.bluetoothd: allow bluetoothd to access
+    /dev/hidraw nodes which are needed for out-of-band USB pairing (for instance
+    sixaxis controllers).
+
+ -- Christopher Obbard <chris.obbard@collabora.com>  Mon, 23 Mar 2020 13:11:27 +0000
+
 bluez (5.50-1co3) apertis; urgency=medium
 
   * debian/bluez.tmpfile: Create /var/lib/bluetooth on boot as apparmor won't
