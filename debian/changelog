@@ -1,3 +1,20 @@
+bluez (5.50-1.2~deb10u1co1) apertis; urgency=medium
+
+  * Apertis specific downstream changes
+    + debian/apparmor.d/usr.lib.bluetooth.bluetoothd: allow bluetoothd to access
+      /dev/hidraw nodes which are needed for out-of-band USB pairing (for instance
+      sixaxis controllers).
+    + debian/bluez.tmpfile: Create /var/lib/bluetooth on boot as apparmor won't
+      allow bluetoothd to create it, which means all Bluetooth operations will
+      fail.
+    + Add AppArmor profiles from Apertis 18.12
+    + Use updated AppArmor profile
+    + Fix the label in AppArmor profile
+    + Add dh-apparmor into build dependencies
+    + set car class of device
+
+ -- Ritesh Raj Sarraf <ritesh.sarraf@collabora.com>  Thu, 30 Apr 2020 20:32:45 +0530
+
 bluez (5.50-1.2~deb10u1) buster-security; urgency=high
 
   * Non-maintainer upload by the Security Team.
