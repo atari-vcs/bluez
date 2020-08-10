@@ -11,6 +11,9 @@ include <tunables/global>
 
 	network bluetooth,
 	network netlink raw,
+        network inet stream,
+        network inet dgram,
+        network packet dgram,
 
 	capability net_admin,
 	capability net_bind_service,
