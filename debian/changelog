@@ -1,3 +1,12 @@
+bluez (5.50-1.2~deb10u1co2) apertis; urgency=medium
+
+  [ Tarun Baghmar ]
+  * connman-pan-network-access and connman-pan-tethering test failure fix.
+    + debian/apparmor.d/usr.lib.bluetooth.bluetoothd: allow bluetooth for stream
+      and dgram packets for ipv4.
+
+ -- User <tarun.baghmar@in.bosch.com>  Mon, 17 Aug 2020 08:19:01 +0000
+
 bluez (5.50-1.2~deb10u1co1) apertis; urgency=medium
 
   * Apertis specific downstream changes
