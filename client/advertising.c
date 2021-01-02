@@ -25,6 +25,7 @@
 #include <config.h>
 #endif
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -63,6 +64,7 @@ static struct ad {
 	bool registered;
 	char *type;
 	char *local_name;
+	char *secondary;
 	uint16_t local_appearance;
 	uint16_t duration;
 	uint16_t timeout;
@@ -78,6 +80,7 @@ static struct ad {
 	bool appearance;
 } ad = {
 	.local_appearance = UINT16_MAX,
+	.discoverable = true,
 };
 
 static void ad_release(DBusConnection *conn)
@@ -182,7 +185,7 @@ static void print_ad(void)
 					bt_appear_to_str(ad.local_appearance),
 					ad.local_appearance);
 	else
-		bt_shell_printf("Apperance: %s\n",
+		bt_shell_printf("Appearance: %s\n",
 					ad.appearance ? "on" : "off");
 
 	bt_shell_printf("Discoverable: %s\n", ad.discoverable ? "on": "off");
@@ -419,8 +422,9 @@ static gboolean discoverable_exists(const GDBusPropertyTable *property,
 static gboolean get_discoverable(const GDBusPropertyTable *property,
 					DBusMessageIter *iter, void *user_data)
 {
-	dbus_message_iter_append_basic(iter, DBUS_TYPE_BOOLEAN,
-							&ad.discoverable);
+	dbus_bool_t value = ad.discoverable;
+
+	dbus_message_iter_append_basic(iter, DBUS_TYPE_BOOLEAN, &value);
 
 	return TRUE;
 }
@@ -440,6 +444,20 @@ static gboolean get_discoverable_timeout(const GDBusPropertyTable *property,
 	return TRUE;
 }
 
+static gboolean secondary_exits(const GDBusPropertyTable *property, void *data)
+{
+	return ad.secondary ? TRUE : FALSE;
+}
+
+static gboolean get_secondary(const GDBusPropertyTable *property,
+					DBusMessageIter *iter, void *user_data)
+{
+	dbus_message_iter_append_basic(iter, DBUS_TYPE_STRING,
+							&ad.secondary);
+
+	return TRUE;
+}
+
 static const GDBusPropertyTable ad_props[] = {
 	{ "Type", "s", get_type },
 	{ "ServiceUUIDs", "as", get_uuids, NULL, uuids_exists },
@@ -455,6 +473,7 @@ static const GDBusPropertyTable ad_props[] = {
 	{ "Appearance", "q", get_appearance, NULL, appearance_exits },
 	{ "Duration", "q", get_duration, NULL, duration_exits },
 	{ "Timeout", "q", get_timeout, NULL, timeout_exits },
+	{ "SecondaryChannel", "s", get_secondary, NULL, secondary_exits },
 	{ }
 };
 
@@ -867,7 +886,7 @@ void ad_advertise_local_appearance(DBusConnection *conn, long int *value)
 					bt_appear_to_str(ad.local_appearance),
 					ad.local_appearance);
 		else
-			bt_shell_printf("Apperance: %s\n",
+			bt_shell_printf("Appearance: %s\n",
 					ad.appearance ? "on" : "off");
 
 		return bt_shell_noninteractive_quit(EXIT_SUCCESS);
@@ -915,6 +934,33 @@ void ad_advertise_timeout(DBusConnection *conn, long int *value)
 	ad.timeout = *value;
 
 	g_dbus_emit_property_changed(conn, AD_PATH, AD_IFACE, "Timeout");
+
+	return bt_shell_noninteractive_quit(EXIT_SUCCESS);
+}
+
+void ad_advertise_secondary(DBusConnection *conn, const char *value)
+{
+	if (!value) {
+		if (ad.secondary)
+			 bt_shell_printf("Secondary Channel: %s\n",
+							ad.secondary);
+		return bt_shell_noninteractive_quit(EXIT_SUCCESS);
+	}
+
+	if (ad.secondary && !strcmp(value, ad.secondary))
+		return bt_shell_noninteractive_quit(EXIT_SUCCESS);
+
+	free(ad.secondary);
+
+	if (value[0] == '\0') {
+		ad.secondary = NULL;
+		return bt_shell_noninteractive_quit(EXIT_SUCCESS);
+	}
+
+	ad.secondary = strdup(value);
+
+	g_dbus_emit_property_changed(conn, AD_PATH, AD_IFACE,
+							"SecondaryChannel");
 
 	return bt_shell_noninteractive_quit(EXIT_SUCCESS);
 }

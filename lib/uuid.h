@@ -88,6 +88,7 @@ extern "C" {
 #define HDP_SINK_UUID		"00001402-0000-1000-8000-00805f9b34fb"
 
 #define HID_UUID		"00001124-0000-1000-8000-00805f9b34fb"
+#define HOG_UUID		"00001812-0000-1000-8000-00805f9b34fb"
 
 #define DUN_GW_UUID		"00001103-0000-1000-8000-00805f9b34fb"
 
@@ -149,6 +150,13 @@ extern "C" {
 #define MESH_PROVISIONING_DATA_OUT			0x2ADC
 #define MESH_PROXY_DATA_IN				0x2ADD
 #define MESH_PROXY_DATA_OUT				0x2ADE
+
+/* GATT Caching attributes */
+#define GATT_CHARAC_CLI_FEAT				0x2B29
+#define GATT_CHARAC_DB_HASH				0x2B2A
+
+/* GATT Server Supported features */
+#define GATT_CHARAC_SERVER_FEAT				0x2B3A
 
 typedef struct {
 	enum {
