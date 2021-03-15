@@ -1,7 +1,7 @@
 src/main.conf etc/bluetooth
 profiles/input/input.conf etc/bluetooth
 profiles/network/network.conf etc/bluetooth
-usr/lib/bluetooth/bluetoothd
+usr/libexec/bluetooth/bluetoothd
 usr/bin/bluetoothctl
 usr/bin/bccmd
 usr/bin/bluemoon
@@ -29,3 +29,4 @@ lib/systemd/system/bluetooth.service
 etc/dbus-1/system.d/bluetooth.conf
 usr/share/dbus-1/system-services/org.bluez.service
 debian/apparmor.d/* /etc/apparmor.d/
+usr/share/zsh/site-functions/_bluetoothctl

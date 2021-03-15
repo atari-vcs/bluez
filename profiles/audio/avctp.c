@@ -60,6 +60,8 @@
  * command with the pressed value is valid for two seconds
  */
 #define AVC_PRESS_TIMEOUT	2
+/* We need to send hold event before AVC_PRESS time runs out */
+#define AVC_HOLD_TIMEOUT	1
 
 #define CONTROL_TIMEOUT		10
 #define BROWSING_TIMEOUT	10
@@ -191,6 +193,7 @@ struct avctp_channel {
 struct key_pressed {
 	uint16_t op;
 	guint timer;
+	bool hold;
 };
 
 struct avctp {
@@ -1161,10 +1164,12 @@ failed:
 	return FALSE;
 }
 
-static int uinput_create(char *name)
+static int uinput_create(struct btd_device *device, const char *name,
+			 const char *suffix)
 {
 	struct uinput_dev dev;
 	int fd, err, i;
+	char src[18];
 
 	fd = open("/dev/uinput", O_RDWR);
 	if (fd < 0) {
@@ -1181,13 +1186,34 @@ static int uinput_create(char *name)
 	}
 
 	memset(&dev, 0, sizeof(dev));
-	if (name)
-		strncpy(dev.name, name, UINPUT_MAX_NAME_SIZE - 1);
+
+	if (name) {
+		strncpy(dev.name, name, UINPUT_MAX_NAME_SIZE);
+		dev.name[UINPUT_MAX_NAME_SIZE - 1] = '\0';
+	}
+
+	if (suffix) {
+		int len, slen;
+
+		len = strlen(dev.name);
+		slen = strlen(suffix);
+
+		/* If name + suffix don't fit, truncate the name, then add the
+		 * suffix.
+		 */
+		if (len + slen < UINPUT_MAX_NAME_SIZE - 1) {
+			strcpy(dev.name + len, suffix);
+		} else {
+			len = UINPUT_MAX_NAME_SIZE - slen - 1;
+			strncpy(dev.name + len, suffix, slen);
+			dev.name[UINPUT_MAX_NAME_SIZE - 1] = '\0';
+		}
+	}
 
 	dev.id.bustype = BUS_BLUETOOTH;
-	dev.id.vendor  = 0x0000;
-	dev.id.product = 0x0000;
-	dev.id.version = 0x0000;
+	dev.id.vendor  = btd_device_get_vendor(device);
+	dev.id.product = btd_device_get_product(device);
+	dev.id.version = btd_device_get_version(device);
 
 	if (write(fd, &dev, sizeof(dev)) < 0) {
 		err = -errno;
@@ -1201,6 +1227,9 @@ static int uinput_create(char *name)
 	ioctl(fd, UI_SET_EVBIT, EV_REL);
 	ioctl(fd, UI_SET_EVBIT, EV_REP);
 	ioctl(fd, UI_SET_EVBIT, EV_SYN);
+
+	ba2strlc(btd_adapter_get_address(device_get_adapter(device)), src);
+	ioctl(fd, UI_SET_PHYS, src);
 
 	for (i = 0; key_map[i].name != NULL; i++)
 		ioctl(fd, UI_SET_KEYBIT, key_map[i].uinput);
@@ -1220,7 +1249,7 @@ static int uinput_create(char *name)
 
 static void init_uinput(struct avctp *session)
 {
-	char address[18], name[248 + 1];
+	char name[UINPUT_MAX_NAME_SIZE];
 
 	device_get_name(session->device, name, sizeof(name));
 	if (g_str_equal(name, "Nokia CK-20W")) {
@@ -1230,12 +1259,11 @@ static void init_uinput(struct avctp *session)
 		session->key_quirks[AVC_PAUSE] |= QUIRK_NO_RELEASE;
 	}
 
-	ba2str(device_get_address(session->device), address);
-	session->uinput = uinput_create(address);
+	session->uinput = uinput_create(session->device, name, " (AVRCP)");
 	if (session->uinput < 0)
-		error("AVRCP: failed to init uinput for %s", address);
+		error("AVRCP: failed to init uinput for %s", name);
 	else
-		DBG("AVRCP: uinput initialized for %s", address);
+		DBG("AVRCP: uinput initialized for %s", name);
 }
 
 static struct avctp_queue *avctp_queue_create(struct avctp_channel *chan)
@@ -1367,7 +1395,7 @@ static void avctp_connect_cb(GIOChannel *chan, GError *err, gpointer data)
 	bt_io_get(chan, &gerr,
 			BT_IO_OPT_DEST, &address,
 			BT_IO_OPT_IMTU, &imtu,
-			BT_IO_OPT_IMTU, &omtu,
+			BT_IO_OPT_OMTU, &omtu,
 			BT_IO_OPT_INVALID);
 	if (gerr) {
 		avctp_set_state(session, AVCTP_STATE_DISCONNECTED, -EIO);
@@ -1475,6 +1503,7 @@ static struct avctp *avctp_get_internal(struct btd_device *device)
 	session->device = btd_device_ref(device);
 	session->state = AVCTP_STATE_DISCONNECTED;
 	session->uinput = -1;
+	session->key.op = AVC_INVALID;
 
 	server->sessions = g_slist_append(server->sessions, session);
 
@@ -1534,6 +1563,8 @@ static void avctp_browsing_confirm(struct avctp *session, GIOChannel *chan,
 	if (bt_io_accept(chan, avctp_connect_browsing_cb, session, NULL,
 								&err)) {
 		avctp_set_state(session, AVCTP_STATE_BROWSING_CONNECTING, 0);
+		session->browsing = avctp_channel_create(session, chan, 1,
+							avctp_destroy_browsing);
 		return;
 	}
 
@@ -1623,13 +1654,13 @@ int avctp_register(struct btd_adapter *adapter, gboolean master)
 
 	server = g_new0(struct avctp_server, 1);
 
-	server->control_io = avctp_server_socket(src, master, L2CAP_MODE_BASIC,
+	server->control_io = avctp_server_socket(src, master, BT_IO_MODE_BASIC,
 							AVCTP_CONTROL_PSM);
 	if (!server->control_io) {
 		g_free(server);
 		return -1;
 	}
-	server->browsing_io = avctp_server_socket(src, master, L2CAP_MODE_ERTM,
+	server->browsing_io = avctp_server_socket(src, master, BT_IO_MODE_ERTM,
 							AVCTP_BROWSING_PSM);
 	if (!server->browsing_io) {
 		if (server->control_io) {
@@ -1819,35 +1850,32 @@ static gboolean repeat_timeout(gpointer user_data)
 {
 	struct avctp *session = user_data;
 
-	avctp_passthrough_release(session, session->key.op);
 	avctp_passthrough_press(session, session->key.op);
 
 	return TRUE;
 }
 
-static void release_pressed(struct avctp *session)
+static int release_pressed(struct avctp *session)
 {
-	avctp_passthrough_release(session, session->key.op);
+	int ret = avctp_passthrough_release(session, session->key.op);
 
 	if (session->key.timer > 0)
 		g_source_remove(session->key.timer);
 
 	session->key.timer = 0;
+	session->key.op = AVC_INVALID;
+	session->key.hold = false;
+
+	return ret;
 }
 
-static bool set_pressed(struct avctp *session, uint8_t op)
+static bool hold_pressed(struct avctp *session, uint8_t op)
 {
-	if (session->key.timer > 0) {
-		if (session->key.op == op)
-			return TRUE;
-		release_pressed(session);
-	}
-
-	if (op != AVC_FAST_FORWARD && op != AVC_REWIND)
+	if (session->key.op != op || !session->key.hold)
 		return FALSE;
 
-	session->key.op = op;
-	session->key.timer = g_timeout_add_seconds(AVC_PRESS_TIMEOUT,
+	if (session->key.timer == 0)
+		session->key.timer = g_timeout_add_seconds(AVC_HOLD_TIMEOUT,
 							repeat_timeout,
 							session);
 
@@ -1859,25 +1887,42 @@ static gboolean avctp_passthrough_rsp(struct avctp *session, uint8_t code,
 					uint8_t *operands, size_t operand_count,
 					void *user_data)
 {
+	uint8_t op = operands[0];
+
 	if (code != AVC_CTYPE_ACCEPTED)
 		return FALSE;
 
-	if (set_pressed(session, operands[0]))
+	if (hold_pressed(session, op))
 		return FALSE;
 
-	avctp_passthrough_release(session, operands[0]);
+	if (op == session->key.op)
+		release_pressed(session);
 
 	return FALSE;
 }
 
-int avctp_send_passthrough(struct avctp *session, uint8_t op)
+int avctp_send_passthrough(struct avctp *session, uint8_t op, bool hold)
 {
-	/* Auto release if key pressed */
-	if (session->key.timer > 0)
+	if (op & 0x80)
+		return -EINVAL;
+
+	/* Release previously unreleased key */
+	if (session->key.op != AVC_INVALID && session->key.op != op)
 		release_pressed(session);
 
+	session->key.op = op;
+	session->key.hold = hold;
 	return avctp_passthrough_press(session, op);
 }
+
+int avctp_send_release_passthrough(struct avctp *session)
+{
+	if (session->key.op != AVC_INVALID)
+		return release_pressed(session);
+
+	return 0;
+}
+
 
 int avctp_send_vendordep(struct avctp *session, uint8_t transaction,
 				uint8_t code, uint8_t subunit,
@@ -2163,7 +2208,7 @@ int avctp_connect_browsing(struct avctp *session)
 				device_get_address(session->device),
 				BT_IO_OPT_SEC_LEVEL, BT_IO_SEC_MEDIUM,
 				BT_IO_OPT_PSM, AVCTP_BROWSING_PSM,
-				BT_IO_OPT_MODE, L2CAP_MODE_ERTM,
+				BT_IO_OPT_MODE, BT_IO_MODE_ERTM,
 				BT_IO_OPT_INVALID);
 	if (err) {
 		error("%s", err->message);
@@ -2194,4 +2239,15 @@ struct avctp *avctp_get(struct btd_device *device)
 bool avctp_is_initiator(struct avctp *session)
 {
 	return session->initiator;
+}
+
+bool avctp_supports_avc(uint8_t avc)
+{
+	int i;
+
+	for (i = 0; key_map[i].name != NULL; i++) {
+		if (key_map[i].avc == avc)
+			return true;
+	}
+	return false;
 }

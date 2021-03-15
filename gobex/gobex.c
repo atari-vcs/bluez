@@ -21,7 +21,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-# include "config.h"
+#include <config.h>
 #endif
 
 #include <unistd.h>
@@ -519,6 +519,16 @@ static void enable_tx(GObex *obex)
 
 	cond = G_IO_OUT | G_IO_HUP | G_IO_ERR | G_IO_NVAL;
 	obex->write_source = g_io_add_watch(obex->io, cond, write_data, obex);
+}
+
+void g_obex_drop_tx_queue(GObex *obex)
+{
+	struct pending_pkt *p;
+
+	g_obex_debug(G_OBEX_DEBUG_COMMAND, "");
+
+	while ((p = g_queue_pop_head(obex->tx_queue)))
+		pending_pkt_free(p);
 }
 
 static gboolean g_obex_send_internal(GObex *obex, struct pending_pkt *p,

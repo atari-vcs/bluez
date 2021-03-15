@@ -6,10 +6,10 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 CONFIGURE_FLAGS := \
 	--disable-silent-rules \
 	--libdir=\$${prefix}/lib/$(DEB_HOST_MULTIARCH) \
-	--libexec=\$${prefix}/lib/ \
 	--enable-static \
 	--enable-tools \
 	--enable-cups \
+	--enable-mesh \
 	--enable-midi	\
 	--enable-datafiles \
 	--enable-threads \
@@ -29,16 +29,22 @@ CONFIGURE_FLAGS := \
 	--enable-sixaxis \
 	--enable-deprecated \
 	--enable-health \
+	--enable-hid2hci \
+	--enable-external-ell \
 	--enable-experimental
 
+ifeq ($(shell dpkg-vendor --is Ubuntu && echo yes) $(DEB_HOST_ARCH), yes i386)
+   skip_packages = -Nbluez-cups
+endif
+
 %:
-	dh $@ --with systemd,autoreconf
+	dh $@ --exclude=.la
 
 override_dh_install:
-	rm -rf  debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/libbluetooth.la
-	rm -rf  debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/plugins/sixaxis.la
-
-	dh_install --list-missing
+	# Remove test scripts, and these are taken directly into the package
+	# from the test directory
+	rm -rf debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/bluez
+	dh_install
 	dh_apparmor -pbluez --profile-name=usr.lib.bluetooth.bluetoothd
 	dh_apparmor -pbluez --profile-name=bin.hciconfig
 	dh_apparmor -pbluez --profile-name=usr.bin.hcitool
@@ -49,11 +55,38 @@ override_dh_auto_configure:
 override_dh_installinit:
 	dh_installinit -pbluez --name=bluetooth --restart-after-upgrade
 
-override_dh_systemd_enable:
-	dh_systemd_enable -pbluez bluetooth.service
-
-override_dh_systemd_start:
-	dh_systemd_start -pbluez --restart-after-upgrade bluetooth.service
+override_dh_installsystemd:
+	dh_installsystemd -pbluez --name=bluetooth bluetooth.service
 
 override_dh_auto_test:
 	# disable
+
+override_dh_builddeb:
+	dh_builddeb ${skip_packages}
+
+override_dh_gencontrol:
+	dh_gencontrol ${skip_packages}
+
+override_dh_fixperms-indep:
+	dh_fixperms
+	chmod 0644 debian/bluez-test-scripts/usr/share/doc/bluez-test-scripts/examples/*
+
+override_dh_auto_install-indep: build_bluez-source
+BUILDDIRSOURCE := $(shell pwd)/debian/tmp-source/bluez-source
+build_bluez-source:
+	install -d debian/bluez-source/usr/src
+	mkdir -p $(BUILDDIRSOURCE)
+	tar --exclude debian --exclude .git --exclude .pc \
+		--exclude autom4te.cache \
+		--exclude config.log \
+		--exclude config.status \
+		--exclude Makefile \
+		--exclude libtool \
+		-cf - . | (cd $(BUILDDIRSOURCE) && tar -xf -)
+	cd $(dir $(BUILDDIRSOURCE)) \
+		&& tar --sort=name \
+			--mtime="@${SOURCE_DATE_EPOCH}" \
+			--owner=0 --group=0 --numeric-owner \
+			--pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime \
+			-cjf $(shell pwd)/debian/bluez-source/usr/src/bluez.tar.bz2 \
+		$(notdir $(BUILDDIRSOURCE))
